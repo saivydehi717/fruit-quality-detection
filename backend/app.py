@@ -1,61 +1,53 @@
-from flask import Flask, render_template, request, jsonify
+import gradio as gr
 import tensorflow as tf
 import numpy as np
 import cv2
-import base64
-import csv
-from datetime import datetime
-
+from PIL import Image
 import os
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+# ---------------- LOAD MODEL ----------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "fruit_quality_model.h5")
 
+model = tf.keras.models.load_model(MODEL_PATH)
 
-# Load model
-model = tf.keras.models.load_model("fruit_quality_model.h5")
+# ---------------- LABELS ----------------
+CLASSES = ["Fresh", "Medium", "Rotten"]
 
-# Load labels
-with open("labels.txt", "r") as f:
-    labels = [line.strip() for line in f.readlines()]
+# ---------------- PREDICTION FUNCTION ----------------
+def predict_fruit(image):
+    if image is None:
+        return "No image", "0%"
 
-# ---------------- HOME ROUTE ----------------
-@app.route("/")
-def home():
-    return render_template("camera.html")
-
-# ---------------- PREDICT ROUTE ----------------
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.json["image"]
-
-    image_data = base64.b64decode(data.split(",")[1])
-    np_arr = np.frombuffer(image_data, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-    img = cv2.resize(img, (150, 150))   # MUST MATCH TRAINING
+    # Convert PIL to OpenCV
+    img = np.array(image)
+    img = cv2.resize(img, (150, 150))
     img = img / 255.0
     img = np.expand_dims(img, axis=0)
 
     preds = model.predict(img)
     index = np.argmax(preds)
-    confidence = float(preds[0][index]) * 100
-    label = labels[index]
+    confidence = preds[0][index] * 100
 
-    # 📁 SAVE TO CSV
-    with open("predictions.csv", "a", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            label,
-            round(confidence, 2)
-        ])
+    return CLASSES[index], f"{confidence:.2f}%"
 
-    return jsonify({
-        "prediction": label,
-        "confidence": round(confidence, 2)
-    })
+# ---------------- GRADIO UI ----------------
+app = gr.Interface(
+    fn=predict_fruit,
+    inputs=gr.Image(
+        sources=["webcam", "upload"],
+        type="pil",
+        label="📷 Capture or Upload Fruit Image"
+    ),
+    outputs=[
+        gr.Label(label="🍎 Fruit Quality"),
+        gr.Textbox(label="📊 Confidence")
+    ],
+    title="🍍 Fruit Quality Detection using AI",
+    description="Detect whether fruit is **Fresh, Medium, or Rotten** using Deep Learning",
+    theme="soft",
+)
 
-# ---------------- RUN SERVER ----------------
+# ---------------- RUN ----------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
-
+    app.launch()
