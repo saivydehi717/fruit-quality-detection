@@ -6,7 +6,10 @@ import base64
 import csv
 from datetime import datetime
 
-app = Flask(__name__)
+import os
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+
 
 # Load model
 model = tf.keras.models.load_model("fruit_quality_model.h5")
@@ -54,4 +57,5 @@ def predict():
 
 # ---------------- RUN SERVER ----------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000)
+
