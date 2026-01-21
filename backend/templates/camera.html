@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fruit Quality Detection</title>
+
+<style>
+/* 🌈 FULL FRUIT SLIDESHOW BACKGROUND */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "Segoe UI", sans-serif;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* 🎞 Background slideshow */
+.slideshow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    animation: slide 24s infinite;
+}
+
+@keyframes slide {
+    0%   { background-image: url("https://images.unsplash.com/photo-1567306226416-28f0efdc88ce"); }
+    25%  { background-image: url("https://images.unsplash.com/photo-1574226516831-e1dff420e43e"); }
+    50%  { background-image: url("https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2"); }
+    75%  { background-image: url("https://images.unsplash.com/photo-1610832958506-aa56368176cf"); }
+    100% { background-image: url("https://images.unsplash.com/photo-1567306226416-28f0efdc88ce"); }
+}
+
+/* 🧊 Glass container */
+.container {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    padding: 30px;
+    border-radius: 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    text-align: center;
+    width: 400px;
+}
+
+/* 🌈 Colorful heading */
+h1 {
+    font-size: 28px;
+    font-weight: bold;
+    background: linear-gradient(45deg, red, orange, green);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 18px;
+}
+
+/* 📷 Camera card */
+.camera-box {
+    background: white;
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.15);
+}
+
+video {
+    width: 100%;
+    border-radius: 12px;
+    border: 4px solid #4CAF50;
+}
+
+/* 🎯 Button */
+button {
+    margin-top: 18px;
+    padding: 12px 26px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 30px;
+    background: linear-gradient(45deg, #ff9800, #4caf50);
+    color: white;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+button:hover {
+    transform: scale(1.07);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+}
+
+/* 🟢🟠🔴 Prediction */
+#result {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* hidden canvas */
+canvas {
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🎞 Background -->
+<div class="slideshow"></div>
+
+<!-- 🧊 Main UI -->
+<div class="container">
+    <h1>🍎 Fruit Quality Detection 🍌</h1>
+
+    <div class="camera-box">
+        <video id="video" autoplay></video>
+    </div>
+
+    <button onclick="capture()">📸 Capture & Predict</button>
+
+    <p id="result">Waiting for prediction...</p>
+
+    <canvas id="canvas" width="150" height="150"></canvas>
+</div>
+
+<script>
+const video = document.getElementById("video");
+
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream)
+    .catch(() => alert("Camera access denied"));
+
+function capture() {
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, 150, 150);
+
+    const imageData = canvas.toDataURL("image/jpeg");
+
+    fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData })
+    })
+    .then(res => res.json())
+    .then(data => {
+        let result = document.getElementById("result");
+        result.innerText = `Prediction: ${data.prediction} (${data.confidence}%)`;
+
+        let label = data.prediction.toLowerCase();
+        if (label.includes("fresh") || label.includes("good"))
+            result.style.color = "green";
+        else if (label.includes("medium") || label.includes("average"))
+            result.style.color = "orange";
+        else
+            result.style.color = "red";
+    })
+    .catch(() => {
+        document.getElementById("result").innerText = "Prediction failed";
+    });
+}
+</script>
+
+</body>
+</html>
